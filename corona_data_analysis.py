@@ -36,7 +36,7 @@ def read_median_income_data():
                 result[county_list[0]] = county_list[1:]
     #make an entry that combines all of NYC with fips = 1
     #using data from https://www.statista.com/statistics/205974/median-household-income-in-new-york/
-    result[1] = '$67,274'
+    result[1] = ['New York City, NY', '', '', '', '', '', '', '', '', '', '$67,274', '']
     return result
 
 
@@ -54,7 +54,7 @@ def read_population_data():
                 result[county_list[0]] = county_list[-3]
     #make an entry that combines all of NYC with fips = 1
     #using data from  https://www1.nyc.gov/site/planning/planning-level/nyc-population/current-future-populations.page
-    result[1] = 8,398,748
+    result[1] = '8398748'
     return result
 
 
@@ -95,9 +95,10 @@ def read_nytimes_county_data(most_recent_date):
             #get all data for a county as a value under the FIPS key
             fips = county_list[3]
             #handle new york city specially; make up a FIPS code of 1 to use for data analysis:
-            if fips is '' and county_list[1] is "New York City":
-                deaths_result[1] = int(county_list[-1])
-                cases_result[1] = int(county_list[-2])
+            if fips == '' and county_list[1] == "New York City":
+                print('handling nytimes new york city data specially')
+                fips = 1
+                print('new york city deaths: ' + str(county_list[-1]))
             deaths_result[fips] = int(county_list[-1])
             cases_result[fips] = int(county_list[-2])
     return cases_result, deaths_result
@@ -114,13 +115,11 @@ def combine_income_deaths_cases_population(cases_data, deaths_data, income_lists
             case_data = cases_data[key]
             population = population_data[key].replace(',','')
             county_data = income_data[0]
-            #if death_data is not 0 or case_data is not 0:
             try:
                 cleaned_income = int(income_data[10][1:].replace(',',''))
                 result[key] = {'deaths':death_data, 'cases':case_data, 'income':cleaned_income, 'population':population, 'county_data': county_data}
             except ValueError:
-                #print('invalid literal for int() with base 10: ' + str(income_data[10][1:].replace(',','')))
-                #this seems to only be happening once in the new york times dataset so...
+                #print('excluding this county: ' + str(county_data))
                 num_excluded_counties += 1
         except KeyError:
             num_excluded_counties += 1
@@ -143,6 +142,7 @@ def sort_data_by_income(combined_income_deaths):
     sorted_cases = [elt[1] for elt in sorted_list]
     sorted_deaths = [elt[2] for elt in sorted_list]
     sorted_population = [elt[3] for elt in sorted_list]
+    print('max num deaths: ' + str(max(sorted_deaths)))
     return (sorted_incomes, sorted_cases, sorted_deaths, sorted_population)
 
 
@@ -166,6 +166,8 @@ def show_deaths_vs_income(sorted_data_tuple, source):
     sorted_incomes, sorted_cases, sorted_deaths, sorted_populations = sorted_data_tuple
     axes = plt.gca()
     plt.scatter(sorted_incomes, sorted_deaths, color='red')
+    #m, b = np.polyfit(sorted_incomes, sorted_deaths, 1)
+    #plt.plot(sorted_incomes, [(m*income + b) for income in sorted_incomes])
     plt.xlabel('Median County Income')
     plt.ylabel('Cumulative County Deaths Due to COVID-19')
     axes.set_yscale('log', basey=2)
@@ -196,8 +198,10 @@ def show_cases_vs_income(sorted_data_tuple, source):
     sorted_incomes, sorted_cases, sorted_deaths, sorted_populations = sorted_data_tuple
     axes = plt.gca()
     plt.scatter(sorted_incomes, sorted_cases, color='blue')
+    #m, b = np.polyfit(sorted_incomes, sorted_cases, 1)
+    #plt.plot(sorted_incomes, [(m*income + b) for income in sorted_incomes])
     plt.xlabel('Median County Income')
-    plt.ylabel('Cumulative County Cases Due to COVID-19')
+    plt.ylabel('Cumulative County Cases of COVID-19')
     axes.set_yscale('log', basey=2)
     axes.axis([min(sorted_incomes), max(sorted_incomes), 1, max(sorted_cases)])
     axes.legend(['Cumulative confirmed cases'])
@@ -228,6 +232,8 @@ def show_deaths_vs_income_per_capita(sorted_data_tuple, source):
     sorted_deaths_per_capita = [(float(sorted_deaths[i])/float(sorted_populations[i])) for i in range(len(sorted_populations))]
     axes = plt.gca()
     plt.scatter(sorted_incomes, sorted_deaths_per_capita, color='red')
+    #m, b = np.polyfit(sorted_incomes, sorted_deaths_per_capita, 1)
+    #plt.plot(sorted_incomes, [(m*income + b) for income in sorted_incomes])
     plt.xlabel('Median County Income')
     plt.ylabel('County Deaths Per Capita Due to COVID-19')
     plt.yscale("log")
@@ -260,8 +266,10 @@ def show_cases_vs_income_per_capita(sorted_data_tuple, source):
     sorted_cases_per_capita = [(float(sorted_cases[i])/float(sorted_populations[i])) for i in range(len(sorted_populations))]
     axes = plt.gca()
     plt.scatter(sorted_incomes, sorted_cases_per_capita, color='blue')
+    #m, b = np.polyfit(sorted_incomes, sorted_cases_per_capita, 1)
+    #plt.plot(sorted_incomes, [(m*income + b) for income in sorted_incomes])
     plt.xlabel('Median County Income')
-    plt.ylabel('County Cases Per Capita Due to COVID-19')
+    plt.ylabel('County Cases Per Capita of COVID-19')
     plt.yscale("log")
     #this excludes all places with 0 cases
     axes.axis([min(sorted_incomes), max(sorted_incomes), .000001, max(sorted_cases_per_capita)])
@@ -293,6 +301,9 @@ def show_deaths_per_cases(sorted_data_tuple, source):
     sorted_deaths_per_cases = [(float(sorted_deaths[i])/float(sorted_cases[i])) if sorted_cases[i] is not 0 else 0 for i in range(len(sorted_cases))]
     axes = plt.gca()
     plt.scatter(sorted_incomes, sorted_deaths_per_cases, color='green')
+    #these work but come out looking funky because it's log scaled
+    #m, b = np.polyfit(sorted_incomes, sorted_deaths_per_cases, 1)
+    #plt.plot(sorted_incomes, [(m*income + b) for income in sorted_incomes])
     plt.xlabel('Median County Income')
     plt.ylabel('Ratio of County Deaths to Cases of COVID-19')
     plt.yscale("log")
@@ -347,14 +358,17 @@ def main():
     usafacts_cases_data = read_usafacts_data('covid_confirmed_usafacts.csv')
 
     #Remember to update this date with the most current date in the nytimes file!
-    nytimes_cases_data, nytimes_deaths_data = read_nytimes_county_data('2020-03-27')
+    nytimes_cases_data, nytimes_deaths_data = read_nytimes_county_data('2020-04-05')
 
 
     #use this block for usafacts data
     usafacts_combined_income_deaths = combine_income_deaths_cases_population(usafacts_cases_data, usafacts_deaths_data, income_lists, population_data)
     usafacts_sorted_data_tuple = sort_data_by_income(usafacts_combined_income_deaths)
+
+    
     do_stats(usafacts_sorted_data_tuple, 'usafacts')
     other_fun_dataset_facts(usafacts_sorted_data_tuple, 'usafacts')
+    
     show_deaths_vs_income(usafacts_sorted_data_tuple, 'usafacts')
     show_cases_vs_income(usafacts_sorted_data_tuple, 'usafacts')
     show_deaths_vs_income_per_capita(usafacts_sorted_data_tuple, 'usafacts')
@@ -362,13 +376,18 @@ def main():
     #show_deaths_vs_income_density(usafacts_sorted_data_tuple, 'usafacts')
     #show_deaths_vs_income_density_per_capita(usafacts_sorted_data_tuple, 'usafacts')
     show_deaths_per_cases(usafacts_sorted_data_tuple, 'usafacts')
+    
+    
 
 
     #use this block for nytimes data
     nytimes_combined_income_deaths = combine_income_deaths_cases_population(nytimes_cases_data, nytimes_deaths_data, income_lists, population_data)
     nytimes_sorted_data_tuple = sort_data_by_income(nytimes_combined_income_deaths)
+
+    
     do_stats(nytimes_sorted_data_tuple, 'nytimes')
     other_fun_dataset_facts(nytimes_sorted_data_tuple, 'nytimes')
+    
     show_deaths_vs_income(nytimes_sorted_data_tuple, 'nytimes')
     show_cases_vs_income(nytimes_sorted_data_tuple, 'nytimes')
     show_deaths_vs_income_per_capita(nytimes_sorted_data_tuple, 'nytimes')
@@ -376,6 +395,8 @@ def main():
     #show_deaths_vs_income_density(nytimes_sorted_data_tuple, 'nytimes')
     #show_deaths_vs_income_density_per_capita(nytimes_sorted_data_tuple, 'nytimes')
     show_deaths_per_cases(nytimes_sorted_data_tuple, 'nytimes')
+    
+    
 
 
 main()
